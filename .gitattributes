@@ -1,0 +1,23 @@
+# Auto detect text files and perform LF normalization
+* text=auto eol=lf
+
+# Python
+*.py text diff=python
+
+# JavaScript/TypeScript
+*.js text
+*.mjs text
+*.ts text
+*.tsx text
+
+# Config
+*.json text
+*.md text
+*.yml text
+*.yaml text
+
+# Binary
+*.png binary
+*.mp3 binary
+*.mp4 binary
+*.jpg binary
