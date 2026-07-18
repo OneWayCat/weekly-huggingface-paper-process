@@ -1,0 +1,30 @@
+# Runtime generated
+Temp/
+output/
+
+# Node
+remotion_ainews/node_modules/
+remotion_ainews/.cache/
+remotion_ainews/public/videos/
+remotion_ainews/_tmp_*.json
+remotion_ainews/public/_scene*.html
+
+# Python
+__pycache__/
+*.pyc
+
+# Chrome (downloaded by Remotion)
+.remotion/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# BGM (user provides their own)
+assets/bgm_struggle.mp3
