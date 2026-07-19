@@ -1,4 +1,4 @@
-import { AbsoluteFill, useCurrentFrame, interpolate, Video, staticFile } from 'remotion';
+import { AbsoluteFill, useCurrentFrame, interpolate, Video, staticFile, Easing } from 'remotion';
 import { FONT_FAMILY, FONT_FAMILY_EN, COLORS } from './style';
 
 export const PaperDemoCard: React.FC<{
@@ -13,7 +13,32 @@ export const PaperDemoCard: React.FC<{
   videoPath: string;
 }> = ({ title, paperIndex, tag, arxiv, github, metrics, videoPath }) => {
   const frame = useCurrentFrame();
-  const entrance = interpolate(frame, [0, 10], [0, 1], { extrapolateRight: 'clamp' });
+
+  // Whole scene entrance with ease-out (Apple: spring-like settle)
+  const entrance = interpolate(frame, [0, 10], [0, 1], {
+    extrapolateRight: 'clamp',
+    easing: Easing.out(Easing.cubic),
+  });
+
+  // Metrics: simple opacity fade-in with slight delay per item
+  const metricsStagger = (metrics || []).map((_, i) =>
+    interpolate(frame - 5 - i * 4, [0, 8], [0, 1], {
+      extrapolateLeft: 'clamp',
+      easing: Easing.out(Easing.cubic),
+    })
+  );
+
+  // Title + arxiv fade in after metrics start appearing
+  const bottomFade = interpolate(frame - 8, [0, 10], [0, 1], {
+    extrapolateLeft: 'clamp',
+    easing: Easing.out(Easing.cubic),
+  });
+
+  // Gradient comes with the text
+  const gradientFade = interpolate(frame - 4, [0, 6], [0, 1], {
+    extrapolateLeft: 'clamp',
+    easing: Easing.out(Easing.cubic),
+  });
 
   // Filter out upvote-only metrics
   const realMetrics = (metrics || []).filter(
@@ -52,9 +77,9 @@ export const PaperDemoCard: React.FC<{
           bottom: 0,
           left: 0,
           right: 0,
-          height: '15%',
+          height: '10%',
           background: 'linear-gradient(to bottom, transparent 0%, rgba(10,10,26,0.85) 100%)',
-          opacity: 1,
+          opacity: gradientFade,
         }}
       />
 
@@ -78,7 +103,7 @@ export const PaperDemoCard: React.FC<{
         {tag}
       </div>
 
-      {/* ═══ Metrics (below tag, left-aligned, same style) ═══ */}
+      {/* ═══ Metrics (below tag, staggered fade-in) ═══ */}
       {metrics && metrics.length > 0 && metrics.map((m, i) => (
         <div
           key={i}
@@ -95,6 +120,7 @@ export const PaperDemoCard: React.FC<{
             fontFamily: FONT_FAMILY_EN,
             whiteSpace: 'nowrap',
             zIndex: 10,
+            opacity: metricsStagger[i] ?? 1,
           }}
         >
           {m}
@@ -108,19 +134,19 @@ export const PaperDemoCard: React.FC<{
           bottom: 24,
           left: 24,
           right: realMetrics.length > 0 ? 200 : 24,
-          opacity: 1,
+          opacity: bottomFade,
         }}
       >
         <div
           style={{
-            fontSize: 22,
+            fontSize: title.length > 60 ? 20 : 22,
             fontWeight: 700,
             color: '#ffffff',
             lineHeight: 1.35,
             textShadow: '0 2px 8px rgba(0,0,0,0.7)',
             overflow: 'hidden',
             display: '-webkit-box',
-            WebkitLineClamp: 2,
+            WebkitLineClamp: title.length > 60 ? 3 : 2,
             WebkitBoxOrient: 'vertical',
           }}
         >
@@ -130,7 +156,7 @@ export const PaperDemoCard: React.FC<{
         <div
           style={{
             fontSize: 14,
-            color: '#94a3b8',
+            color: '#cbd5e1',
             marginTop: 4,
             textShadow: '0 1px 4px rgba(0,0,0,0.6)',
             fontFamily: FONT_FAMILY_EN,

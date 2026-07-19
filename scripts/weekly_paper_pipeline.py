@@ -312,9 +312,13 @@ def run_render(md_data, meta, monday_str, friday_str, lines_md_path):
     print("  [Title] Opening...")
     title_dur_frames = int(tts_durations[0] * FPS)
     scene0 = os.path.join(workdir, "scene_00_title.mp4")
+    # Collect unique tags from all papers
+    all_tags = list(dict.fromkeys(p.get("tag", "") for p in meta if p.get("tag")))
     ok, bundle_path = render_remotion("title", {
         "title": "HuggingFace一周论文速览",
         "dateRange": f"{monday_str} - {friday_str}",
+        "tags": all_tags,
+        "weekNumber": week_num,
         "demoDurationFrames": title_dur_frames,
     }, scene0, bundle_path)
     if not ok:

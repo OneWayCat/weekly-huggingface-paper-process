@@ -161,9 +161,7 @@ def mux_av(video, audio, output):
         "-map", "0:v:0", "-map", "1:a:0", "-shortest", output], capture_output=True)
 
 def concat_videos(files, output):
-    """Concatenate multiple video files. Stream copy when formats match."""
-    # All scene files are already 24fps H.264 1080p from Remotion —
-    # standardize just to be safe, then concat without per-file re-encode
+    """Concatenate multiple video files. All scene files are already 24fps H.264 1080p from Remotion."""
     n = len(files)
     if n == 0:
         return

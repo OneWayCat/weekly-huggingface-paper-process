@@ -18,6 +18,8 @@ export const RemotionRoot: React.FC = () => {
         defaultProps={{
           title: 'HuggingFace一周论文速览',
           dateRange: '2026.7.13 - 2026.7.17',
+          tags: [],
+          weekNumber: 0,
         }}
       />
       <Composition

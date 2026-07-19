@@ -28,6 +28,8 @@ const SCENE_CONFIG = {
     inputPropsMapper: (data) => ({
       title: data.title || 'HuggingFace一周论文速览',
       dateRange: data.dateRange || '',
+      tags: data.tags || [],
+      weekNumber: data.weekNumber ?? 0,
     }),
   },
   paperTitle: {
