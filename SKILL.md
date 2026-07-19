@@ -35,8 +35,6 @@ description: 每周 HuggingFace 论文速览视频生成。从 lines.md + slice.
 | 文件 | 用途 |
 |------|------|
 | `setup-requirements.md` | 环境安装参考（ffmpeg/Node/Python/TTS） |
-| `metrics-not-showing-debug.md` | 指标/GitHub 数据不显示的 4 层排查清单 |
-| `concat-xfade-guide.md` | ffmpeg xfade 交叉淡入的 offset 计算、fadewhite 配置、常见失败原因 |
 
 ## 快速使用
 
@@ -64,7 +62,6 @@ python scripts/weekly_paper_pipeline.py output/YYYYWeekWW/lines.md
 | 版本号自动递增 | 扫描 `output/` 目录取最大 `_vN` +1，不覆盖旧文件 |
 | `<Video>` 层遮盖 | `zIndex: 10` 确保所有叠加层在 Chromium 视频层之上 |
 | 硬链接替代 copy2 | `os.link()` 省磁盘 I/O（同盘生效） |
-| 场景间交叉淡入 | `concat_videos()` 用 ffmpeg xfade 做 12 帧(0.5s)过渡，失败自动 fallback 到硬切 |
 
 ## 动效规范（dev 分支实验）
 

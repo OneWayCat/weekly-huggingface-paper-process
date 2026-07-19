@@ -168,7 +168,7 @@ export const TitleCard: React.FC<{ title: string; dateRange: string; tags?: stri
           opacity: logoOpacity,
         }}
       >
-        PeperPaper
+        PepperPaper
       </div>
     </AbsoluteFill>
   );
