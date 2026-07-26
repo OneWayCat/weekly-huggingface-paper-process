@@ -107,6 +107,8 @@ def parse_slice_md(md_path):
                     current["arxiv"] = val
                 elif key == "分类标签":
                     current["tag"] = val
+                elif key == "作者":
+                    current["authors"] = val
                 elif key == "GitHub":
                     current["github"] = val
                 elif key == "演示素材":
@@ -232,6 +234,7 @@ def run_render(md_data, meta, monday_str, friday_str, lines_md_path):
 
         paper_data.append({
             "id": i, "title": p["title"],
+            "authors": p.get("authors", ""),
             "institution": p.get("institution", ""),
             "arxiv": p.get("arxiv", ""),
             "github": p.get("github", ""),
@@ -247,7 +250,7 @@ def run_render(md_data, meta, monday_str, friday_str, lines_md_path):
     if actual_count < PAPER_COUNT:
         print(f"\n[WARN] Only got {actual_count} papers (wanted {PAPER_COUNT})")
 
-    # Step 2: Generate TTS
+    # Step 2: Generate TTS — opening, then per-paper: title TTS + demo TTS, then outro
     print(f"\n[Step 2] Generating TTS narration ({actual_count} papers)...")
     tts_files = []; tts_durations = []
 
@@ -259,10 +262,17 @@ def run_render(md_data, meta, monday_str, friday_str, lines_md_path):
     tts_files.append(tts0); tts_durations.append(d0)
     print(f"    {d0:.1f}s")
 
-    # Each paper: just demo narration (no separate title TTS)
+    # Each paper: title TTS (paper title) + demo narration TTS
     for i, paper in enumerate(paper_data):
         print(f"  Paper {i}...")
-        tts_d = os.path.join(workdir, f"tts_{i+1}.mp3")
+        # Title TTS — short, reads the paper title
+        title_tts_text = paper["title"]
+        tts_t = os.path.join(workdir, f"tts_{2*i+1}_title.mp3")
+        dt = tts_qwen3(title_tts_text, tts_t)
+        tts_files.append(tts_t); tts_durations.append(dt)
+        print(f"    Title TTS: {dt:.1f}s")
+        # Demo narration TTS
+        tts_d = os.path.join(workdir, f"tts_{2*i+2}_demo.mp3")
         d = tts_qwen3(normalize_tts(paper["narration"]), tts_d)
         tts_files.append(tts_d); tts_durations.append(d)
         print(f"    Demo: {d:.1f}s")
@@ -286,7 +296,7 @@ def run_render(md_data, meta, monday_str, friday_str, lines_md_path):
     for i, paper in enumerate(paper_data):
         print(f"  Paper {i}: muxing demo + TTS...")
         video_in = paper["demo_url"]
-        tts_in = tts_files[i + 1]  # tts_files[0]=opening, [1]=paper0...
+        tts_in = tts_files[2 * i + 2]  # tts_files[0]=opening, [1]=p0title, [2]=p0demo...
         voiced_out = os.path.join(workdir, f"voiced_{i}.mp4")
         dur = mux_demo_tts(video_in, tts_in, voiced_out)
         voiced_videos.append(voiced_out)
@@ -303,8 +313,9 @@ def run_render(md_data, meta, monday_str, friday_str, lines_md_path):
             print(f"    voiced_{i}.mp4 ({os.path.getsize(voiced_out)/1024:.0f} KB, TTS={dur:.1f}s) [copy]")
 
     # Step 4: Render Remotion scenes (bundle once, reuse for all)
-    # 7 scenes: title → demo0 → demo1 → demo2 → demo3 → demo4 → outro
-    print(f"\n[Step 4] Rendering Remotion scenes (7 scenes)...")
+    # 1 + 2*N + 1 scenes: title → (titleCardN → demoN) × N → outro
+    total_scenes = 1 + 2 * actual_count + 1
+    print(f"\n[Step 4] Rendering Remotion scenes ({total_scenes} scenes)...")
     scene_files = []
     bundle_path = None
 
@@ -312,7 +323,6 @@ def run_render(md_data, meta, monday_str, friday_str, lines_md_path):
     print("  [Title] Opening...")
     title_dur_frames = int(tts_durations[0] * FPS)
     scene0 = os.path.join(workdir, "scene_00_title.mp4")
-    # Collect unique tags from all papers
     all_tags = list(dict.fromkeys(p.get("tag", "") for p in meta if p.get("tag")))
     ok, bundle_path = render_remotion("title", {
         "title": "HuggingFace一周论文速览",
@@ -325,13 +335,33 @@ def run_render(md_data, meta, monday_str, friday_str, lines_md_path):
         print("  [WARN] Title render failed, continuing...")
     scene_files.append(scene0)
 
-    # Scene 1-5: Demo for each paper — Remotion renders overlay only,
-    # <Video> component plays the voiced video silently (visual track only)
+    # Scenes 1-N*2: Per paper — title card then demo
+    # TTS index for paper i: title at 2*i+1, demo at 2*i+2
     for i, paper in enumerate(paper_data):
+        # Title card scene
+        title_i = 2 * i + 1  # tts index for this paper's title
+        print(f"  [Paper {i} Title Card] {paper['title'][:40]}...")
+        title_dur_frames = int(tts_durations[title_i] * FPS)
+        title_out = os.path.join(workdir, f"scene_{title_i}_titlecard.mp4")
+        ok, bundle_path = render_remotion("paperTitle", {
+            "title": paper["title"],
+            "authors": paper.get("authors", ""),
+            "institution": paper.get("institution", ""),
+            "tag": paper["tag"],
+            "arxiv": paper["arxiv"],
+            "github": paper.get("github", ""),
+            "weekNumber": week_num,
+            "demoDurationFrames": title_dur_frames,
+        }, title_out, bundle_path)
+        if not ok:
+            print(f"  [WARN] Paper {i} title card render failed, continuing...")
+        scene_files.append(title_out)
+
+        # Demo scene
+        demo_i = 2 * i + 2  # tts index for this paper's demo
         print(f"  [Paper {i} Demo] {paper['title'][:40]}...")
-        tts_index = i + 1
-        demo_dur_frames = int(tts_durations[tts_index] * FPS)
-        demo_out = os.path.join(workdir, f"scene_{i+1}_demo.mp4")
+        demo_dur_frames = int(tts_durations[demo_i] * FPS)
+        demo_out = os.path.join(workdir, f"scene_{demo_i}_demo.mp4")
         ok, bundle_path = render_remotion("paperDemo", {
             "title": paper["title"],
             "narration": paper["narration"],
@@ -344,12 +374,13 @@ def run_render(md_data, meta, monday_str, friday_str, lines_md_path):
             "videoPath": f"videos/voiced_{i}.mp4",
         }, demo_out, bundle_path)
         if not ok:
-            print(f"  [WARN] Paper {i} render failed, continuing...")
+            print(f"  [WARN] Paper {i} demo render failed, continuing...")
         scene_files.append(demo_out)
 
-    # Scene 6: Outro
+    # Last scene: Outro
+    outro_idx = len(tts_files) - 1
     print("  [Outro]...")
-    outro_dur_frames = int(tts_durations[-1] * FPS)
+    outro_dur_frames = int(tts_durations[outro_idx] * FPS)
     outro_out = os.path.join(workdir, "scene_outro.mp4")
     ok, bundle_path = render_remotion("outro", {
         "text": "欢迎关注\n下期再见",

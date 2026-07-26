@@ -142,10 +142,10 @@ export const TitleCard: React.FC<{ title: string; dateRange: string; tags?: stri
             <span
               key={i}
               style={{
-                padding: '4px 14px',
-                borderRadius: 14,
-                fontSize: 13,
-                fontWeight: 600,
+                padding: '8px 22px',
+                borderRadius: 18,
+                fontSize: 20,
+                fontWeight: 700,
                 background: theme.accent,
                 color: '#ffffff',
                 fontFamily: FONT_FAMILY_EN,

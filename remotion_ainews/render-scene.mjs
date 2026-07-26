@@ -51,8 +51,10 @@ const SCENE_CONFIG = {
         title: data.title || '',
         authors: authorsStr,
         institution: data.institution || data.organization || '',
-        arxiv: data.arxiv || '',
         tag: data.tag || 'Paper',
+        arxiv: data.arxiv || '',
+        github: data.github || '',
+        weekNumber: data.weekNumber ?? 0,
       };
     },
   },

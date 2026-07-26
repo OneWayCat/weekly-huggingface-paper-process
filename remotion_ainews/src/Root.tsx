@@ -33,8 +33,10 @@ export const RemotionRoot: React.FC = () => {
           title: 'Sample Paper Title',
           authors: 'Author One et al.',
           institution: 'University',
-          arxiv: 'https://arxiv.org/abs/2607.00000',
           tag: 'CV',
+          arxiv: 'https://arxiv.org/abs/2607.00000',
+          github: '',
+          weekNumber: 28,
         }}
       />
       <Composition

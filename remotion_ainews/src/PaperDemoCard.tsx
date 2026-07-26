@@ -83,16 +83,16 @@ export const PaperDemoCard: React.FC<{
         }}
       />
 
-      {/* ═══ Tag badge (top-left, uniform blue) ═══ */}
+      {/* ═══ Tag badge (top-left, uniform blue, larger) ═══ */}
       <div
         style={{
           position: 'absolute',
-          top: 20,
-          left: 24,
-          padding: '4px 14px',
-          borderRadius: 14,
-          fontSize: 13,
-          fontWeight: 600,
+          top: 28,
+          left: 28,
+          padding: '8px 22px',
+          borderRadius: 18,
+          fontSize: 20,
+          fontWeight: 700,
           background: '#6366f1',
           color: '#ffffff',
           fontFamily: FONT_FAMILY_EN,
@@ -103,18 +103,18 @@ export const PaperDemoCard: React.FC<{
         {tag}
       </div>
 
-      {/* ═══ Metrics (below tag, staggered fade-in) ═══ */}
+      {/* ═══ Metrics (bottom-right, right-aligned, larger, staggered fade-in) ═══ */}
       {metrics && metrics.length > 0 && metrics.map((m, i) => (
         <div
           key={i}
           style={{
             position: 'absolute',
-            top: 58 + i * 30,
-            left: 24,
-            padding: '4px 14px',
-            borderRadius: 14,
-            fontSize: 13,
-            fontWeight: 600,
+            bottom: 100 + i * 40,
+            right: 28,
+            padding: '8px 22px',
+            borderRadius: 18,
+            fontSize: 19,
+            fontWeight: 700,
             background: '#6366f1',
             color: '#ffffff',
             fontFamily: FONT_FAMILY_EN,
@@ -133,13 +133,13 @@ export const PaperDemoCard: React.FC<{
           position: 'absolute',
           bottom: 24,
           left: 24,
-          right: realMetrics.length > 0 ? 200 : 24,
+          right: realMetrics.length > 0 ? 280 : 24,
           opacity: bottomFade,
         }}
       >
         <div
           style={{
-            fontSize: title.length > 60 ? 20 : 22,
+            fontSize: title.length > 60 ? 28 : 32,
             fontWeight: 700,
             color: '#ffffff',
             lineHeight: 1.35,
@@ -155,7 +155,7 @@ export const PaperDemoCard: React.FC<{
         {/* arxiv + github line */}
         <div
           style={{
-            fontSize: 14,
+            fontSize: 18,
             color: '#cbd5e1',
             marginTop: 4,
             textShadow: '0 1px 4px rgba(0,0,0,0.6)',

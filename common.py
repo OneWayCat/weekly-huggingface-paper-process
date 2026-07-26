@@ -131,14 +131,25 @@ def _num_to_cn(n):
         s = s[1:]
     return s
 
+def _num_to_cn_digit_by_digit(s):
+    """Convert numeric string to digit-by-digit reading: '5090' → '五零九零'"""
+    return "".join(_digit_cn(int(d)) for d in str(s))
+
 def normalize_tts(text):
     """Normalize numbers and units for TTS"""
-    text = re.sub(r'(\d+)%', lambda m: '百分之' + _num_to_cn(int(m.group(1))), text)
+    text = re.sub(r'(\d+(?:\.\d+)?)%', lambda m: '百分之' + _num_to_cn(float(m.group(1))), text)
     text = re.sub(r'(\d+)B', lambda m: _num_to_cn(int(m.group(1))*10) + "亿", text)
     text = re.sub(r'(\d+)M', lambda m: _num_to_cn(int(m.group(1))) + "百万", text)
     text = re.sub(r'\$(\d+\.?\d*)', lambda m: _num_to_cn(float(m.group(1))) + "美元", text)
     text = re.sub(r'1/(\d+)', lambda m: _num_to_cn(int(m.group(1))) + "分之一", text)
     text = re.sub(r'(\d+\.\d+)', lambda m: _num_to_cn(float(m.group(1))), text)
+    # Resolution & units: 720P → 七二零P, 540P → 五四零P, 4K → 四K
+    text = re.sub(r'(\d+)P', lambda m: _num_to_cn_digit_by_digit(m.group(1)) + 'P', text)
+    # 4K, 8K etc — match K followed by non-letter (or end of string)
+    text = re.sub(r'(\d+)K(?![a-zA-Z])', lambda m: _num_to_cn_digit_by_digit(m.group(1)) + 'K', text)
+    # Model numbers (4+ digits in tech context): 5090 → 五零九零
+    text = re.sub(r'(?<=RTX\s)(\d{4})', lambda m: _num_to_cn_digit_by_digit(m.group(1)), text)
+    text = re.sub(r'(?<=RTX\s)(\d{3}|Ti)', lambda m: _num_to_cn_digit_by_digit(m.group(1)) if m.group(1).isdigit() else 'Ti', text)
     text = re.sub(r'(\d+)([\u4e00-\u9fff])', lambda m: _num_to_cn(int(m.group(1))) + m.group(2), text)
     replacements = {
         'GitHub Star': 'GitHub 星标',

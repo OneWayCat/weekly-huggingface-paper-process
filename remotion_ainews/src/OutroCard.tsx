@@ -48,7 +48,7 @@ export const OutroCard: React.FC<{ text: string }> = ({ text }) => {
       {/* Text */}
       <div
         style={{
-          fontSize: 36,
+          fontSize: 40,
           fontWeight: 600,
           color: COLORS.text,
           textAlign: 'center',
