@@ -261,8 +261,8 @@ def get_week_date_range():
     return monday.strftime("%Y.%#m.%#d"), friday.strftime("%Y.%#m.%#d")
 
 def get_week_number():
-    """Return ISO week number"""
-    return datetime.now().strftime("%W").zfill(2)
+    """Return ISO week number (1-53)"""
+    return str(datetime.now().isocalendar()[1]).zfill(2)
 
 # ── arXiv / Paper tag helpers ──
 
