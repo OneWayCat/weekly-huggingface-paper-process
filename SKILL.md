@@ -109,8 +109,31 @@ python scripts/weekly_paper_pipeline.py output/YYYYWeekWW/lines.md
 | `57.4%的成功率` | `百分之五十七点四的成功率` | 百分比后接文字，防止正则误匹配 |
 | `HOMIE` | `Home Me` | 按英文发音写 |
 | `DAMO` | `达摩` | 中文机构名写汉字 |
+| `AI4AI` | `AI for AI` | 数字4读作for，不读四 |
+| `MA1元` | `MA一元` | 模型名+中文后缀，防"元"被当单位 |
+| `Frontis-MA1元进化` | `Frontis-MA一元进化` | 型号数字后接中文词（元/倍/帧等）会被 `(\d+)([\u4e00-\u9fff])` 误匹配，如 "1元"→"一元" |
+| `4.7×` | `四点七倍` | 倍率直接写中文；**不要**写"四点七分之一"（会读成 1/4.7） |
 
 **原则**：所有数字+字母组合（分辨率、型号）统一在 lines.md 写中文读音。normalize_tts() 中的正则作为后备，但不可完全信赖。写完后用 `tts_qwen3()` 逐段测试确认。
+
+### 跑 pipeline 前的 TTS 标音批量预检（必须做）
+
+写完全部 lines.md 后、启动 pipeline 前，先对 normalize_tts() 输出做一次**全篇扫描**，能提前抓出大多数读音问题，避免 Week 30 那种渲染后才发现、返工重混的循环：
+
+```python
+# 读取 lines.md，对每篇论文首段跑 normalize_tts()
+import re, sys
+sys.path.insert(0, '.')
+from common import normalize_tts
+text = open('output/YYYYWeekWW/lines.md', encoding='utf-8').read()
+for i, sec in enumerate(re.split(r'## 论文 \d+', text)[1:], 1):
+    norm = normalize_tts(sec.strip().split('\n')[0])
+    # 抓残留 ASCII 数字：裸数字、RTX+数字、数字+字母
+    leftover = re.findall(r'(?<![\u4e00-\u9fff])\d+(?:\.\d+)?%?(?![\u4e00-\u9fff%])|RTX \d+', norm)
+    print(f'Paper {i}: {"✅" if not leftover else "⚠️ " + str(leftover)}')
+```
+
+检查要点：①残留 ASCII 数字（型号/百分比没转中文）②`X元`/`X倍` 被正则误转（如 MA1元→MA一元）③关键短语 spot-check（`RTX四零九零`、`百分之三十九点三九` 等）。有 ⚠️ 先改 lines.md 再跑 pipeline。
 
 ### normalize_tts() 自动转换规则（common.py）
 
@@ -152,6 +175,22 @@ python scripts/weekly_paper_pipeline.py output/YYYYWeekWW/lines.md
 3. 验证可量化指标（无具体数字则不收录）
 
 宁缺毋滥，指标列为空则整篇不收录。
+
+### 抓取 HF 每日论文（国内网络）
+
+Python urllib 对 hf-mirror.com / export.arxiv.org 的 SSL 握手会报 `SSLEOFError: UNEXPECTED_EOF_WHILE_READING`（间歇性）。**可靠方式：curl 抓取落盘 + Python 解析**：
+
+```bash
+# 1. curl -k 抓 daily_papers JSON（-k 跳过证书校验，可直连 hf-mirror）
+curl -s -k "https://hf-mirror.com/api/daily_papers?date=2026-07-27" \
+  -H "User-Agent: Mozilla/5.0" --max-time 30 -o _daily_2026-07-27.json
+
+# 2. arXiv 摘要同理（export.arxiv.org API 返回 XML）
+curl -s -k "https://export.arxiv.org/api/query?id_list=2607.28618,2607.28568&max_results=10" \
+  -H "User-Agent: Mozilla/5.0" -o _arxiv.xml
+```
+
+落盘后用 Python `json.load()` / `xml.etree.ElementTree` 解析（不要再用 urllib 发第二次请求）。curl 输出 `200` 但文件为空时重试一次；hf-mirror 偶发 SSL EOF 属正常，重试即可。
 
 ## Pipeline 11 步骤详解
 
@@ -198,15 +237,24 @@ Demo TTS 索引计算公式：`tts_files[2 * i + 2]`（i 为论文序号 0-4）
 - 标题页每周主题色（7 色调色板循环，weekNumber % 7 决定色调）。
 - **拒绝**：translateX 滑入、装饰圆圈、xfade/fadewhite 过渡（画质不稳）。
 
+### 全局标签背景色（TAG_BG）
+
+所有标签徽章背景统一由 `src/style.ts` 的 **`TAG_BG`** 常量控制（默认 `#6366f1` indigo）：
+- 开场标题页（TitleCard）分类标签
+- 论文标题页（PaperTitleCard）分类标签
+- 演示页（PaperDemoCard）左上分类标签 + 右下指标标签
+
+**换主题色只改 `TAG_BG` 一处**，禁止在组件里硬编码 `#6366f1` 或标签用 `theme.accent`（装饰元素——分隔线、背景渐变——仍用每周主题色，两者不冲突）。检查残留：`search_files pattern="background: '#6366f1'|background: theme\.accent,"` 应为 0 处。
+
 ### Demo 页（PaperDemoCard）布局
-- **分类标签（左上）**：20px, padding 8×22, borderRadius 18, fontWeight 700, 蓝底#6366f1 白字，top:28 left:28
-- **指标（右下）**：19px, padding 8×22, borderRadius 18, fontWeight 700, 蓝底#6366f1 白字, bottom:100 + i×40, right:28。已从左上（top:58 left:24, 13px）移动到右下。
+- **分类标签（左上）**：20px, padding 8×22, borderRadius 18, fontWeight 700, `TAG_BG` 底白字，top:28 left:28
+- **指标（右下）**：19px, padding 8×22, borderRadius 18, fontWeight 700, `TAG_BG` 底白字, bottom:100 + i×40, right:28。已从左上（top:58 left:24, 13px）移动到右下。
 - **论文标题（左下）**：28px(长标题>60字符) / 32px(短标题), fontWeight 700, 白字 + textShadow, 右边界留 280px 防与右下指标重叠
 - **arXiv/GitHub 行**：18px, 颜色 #cbd5e1, 位于标题下方
 - **底部渐变**：height 10%, rgba(10,10,26,0.85)
 
 ### 标题卡（PaperTitleCard）布局 — 插入每个 demo 前
-- **标签**：20px, padding 8×22, borderRadius 18, 蓝底#6366f1 白字
+- **标签**：20px, padding 8×22, borderRadius 18, `TAG_BG` 底白字
 - **论文标题**：36px(长>60字符) / 42px(短标题), 居中, maxWidth 1000, fontWeight 700
 - **作者/机构**：20px, 灰色 (#64748b/#94a3b8), fontWeight 500, 居中
 - **分隔线**：width 60, height 3, accent 渐变色
@@ -303,11 +351,27 @@ ffmpeg -y -ss 1 -i watch.mp4 -vframes 1 -q:v 2 -update 1 preview.jpg
 ### TTS 标音规则（W30 实战总结）
 见上方"播报文本风格"→"TTS 标音规则"表格。**原则**：lines.md 直接写中文读音，不依赖自动转换。
 
+### TTS 修正确认流程
+1. 修改 lines.md 标音后，重新生成该段 TTS
+2. 比较新旧 TTS 时长：新 TTS 变短 → `-shortest` 自动处理，无需重渲染场景；新 TTS 变长 → 必须重新渲染场景（更新 `demoDurationFrames`）
+3. 替换 `mux_N.mp4` → 重 concat → 混 BGM
+4. **不碰代码**，只改 lines.md + ffmpeg 操作
+5. **手写 concat 时必须用 `-b:v 8M`**（与 pipeline `concat_videos()` 一致）——用默认 CRF 会产出低码率成品（3:54 视频只有 30MB vs 正常 214MB）。完整重拼命令见 `scripts/reconcat_from_workdir.sh`（或参考下方"单场景失败的中段恢复"）
+
+### papers.md 格式
+每期在 output/ 目录下生成 `papers.md`，**纯文本格式**（无 `##` `**` 等 markdown 标记），内容：论文编号、标题、arXiv、GitHub、标签、机构。
+
 ### Demo 视频兼容性
 - **HEVC (H.265) 编码的视频**会导致 Remotion `<Video>` 超时渲染失败
 - 修复：`ffmpeg -c:v libx264 -pix_fmt yuv420p` 转码后再渲染
 
 ## 常见问题
+
+**输出文件名周数错误（W30 vs W31）**: 若视频文件名 `weekly_papers_2026_W30_v1.mp4` 出现在 W31 目录里，是 `get_week_number()` 用了 Python `strftime("%W")` —— `%W` **不是 ISO 周数**（按年首周一/周日起算差异，跨年或 7-8 月会出现 ±1 偏移）。修复：改用 `str(datetime.now().isocalendar()[1]).zfill(2)`（ISO 周数，与 shell `date +%V` 一致）。已修复（commit 2176655）。排查方法：`date "+%V"` 与 `get_week_number()` 对比；文件名错了直接 `mv` 改名即可，内容不受影响。
+
+**手写 concat 码率过低（30MB vs 正常 214MB）**: 手动重拼时若用默认 CRF 编码（`-c:v libx264` 不带码率参数），成品码率会掉到 ~1Mbps，3:54 视频只有 30MB，明显劣于正常 8Mbps / 214MB。pipeline 的 `concat_videos()` 用的是 `-b:v 8M`。手写重拼必须带：`-c:v libx264 -pix_fmt yuv420p -b:v 8M -c:a aac -b:a 128k`。用 `ffprobe` 检查成品码率可快速发现。
+
+**TTS 修正确认后时长不匹配**: 修复 TTS 标音后（如 720P→七二零P），新音频可能变长。如果新 TTS 时长 > 原场景帧数（如 37.2s→38.4s），必须重新渲染场景（更新 demoDurationFrames）。如果新 TTS 变短或不变，`-shortest` 自动处理。用 ffprobe 对比新旧 TTS 时长。
 
 **指标不显示**: 查 Step 1 paper_data 的 metrics 是否硬编码空数组。先查那个再查 bundle 缓存——曾经在 `paper_data.append({"metrics": []})` 处硬编码空数组导致 4 个版本指标不可见，实际 Step 4 传 `paper.get("metrics", [])` 永远取不到。修复：改为 `"metrics": p.get("metrics", [])`。
 
@@ -319,7 +383,14 @@ ffmpeg -y -ss 1 -i watch.mp4 -vframes 1 -q:v 2 -update 1 preview.jpg
 
 **PaperTitleCard 黑屏 Bug**: PaperTitleCard 的退出淡出必须使用 `useVideoConfig().durationInFrames`，不能用硬编码 `DUR=80`。否则当场景被 render-scene.mjs 设为更长帧数（如132帧）时，退出淡出提前完成导致剩下 N 帧全黑屏。
 
-**HEVC 编码报错**: 如果 Remotion `<Video>` 组件渲染时报 `A delayRender() ... was called but not cleared after 28000ms`，检查 demo 视频是否为 HEVC/H.265 编码（`ffprobe -v error -show_entries stream=codec_name`）。Remotion 不支持 HEVC，需重新编码为 H.264：`ffmpeg -i input.mp4 -c:v libx264 -pix_fmt yuv420p -preset fast -crf 23 -c:a copy output.mp4`。编码后在 pipeline 的 Step 3 中使用 H.264 版本。
+**HEVC 编码报错**: 如果 Remotion `<Video>` 组件渲染时报 `A delayRender() ... was called but not cleared after 28000ms`，检查 demo 视频是否为 HEVC/H.265 编码（`ffprobe -v error -show_entries stream=codec_name`）。Remotion 不支持 HEVC，需重新编码为 H.264：`ffmpeg -i input.mp4 -c:v libx264 -pix_fmt yuv420p -preset fast -crf 23 -c:a copy output.mp4`。编码后在 pipeline 的 Step 3 中使用 H.264 版本。详细排查见 `references/hevc-remotion-compatibility.md`。
+
+**单场景失败的中段恢复（不用重跑整个 pipeline）**: 某个场景渲染失败（如 HEVC 超时）时，其余 11 个 mux_N.mp4 都已在 Temp workdir 里，可手工补完：
+1. 用 render-scene.mjs 单独重渲染失败场景：手写 `_tmp_sceneN.json`（含 title/narration/tag/arxiv/metrics/videoPath/demoDurationFrames，帧数=该段 TTS 秒数×24），`node render-scene.mjs paperDemo _tmp_sceneN.json scene_N.mp4`
+2. 把 scene 复制到 workdir：`cp remotion_ainews/scene_N.mp4 Temp/wNN_xxx/scene_N.mp4`
+3. 用该段 TTS 重混流：`ffmpeg -i scene_N.mp4 -i tts_N_demo.mp3 ... -shortest mux_N.mp4`
+4. 在 workdir 里重 concat（`_concat.txt` 已存在，mux 文件按序）→ 再混 BGM → 产出新版本号 mp4
+5. 若场景成功但 TTS 变长导致黑屏截断，同流程但更新 demoDurationFrames 重渲染
 
 **PepperPaper 少个 p**: TitleCard.tsx 的 PeperPaper 必须写成 PepperPaper。
 

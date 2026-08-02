@@ -1,5 +1,5 @@
 import { AbsoluteFill, useCurrentFrame, interpolate, Video, staticFile, Easing } from 'remotion';
-import { FONT_FAMILY, FONT_FAMILY_EN, COLORS } from './style';
+import { FONT_FAMILY, FONT_FAMILY_EN, COLORS, TAG_BG } from './style';
 
 export const PaperDemoCard: React.FC<{
   title: string;
@@ -93,7 +93,7 @@ export const PaperDemoCard: React.FC<{
           borderRadius: 18,
           fontSize: 20,
           fontWeight: 700,
-          background: '#6366f1',
+          background: TAG_BG,
           color: '#ffffff',
           fontFamily: FONT_FAMILY_EN,
           opacity: 1,
@@ -115,7 +115,7 @@ export const PaperDemoCard: React.FC<{
             borderRadius: 18,
             fontSize: 19,
             fontWeight: 700,
-            background: '#6366f1',
+            background: TAG_BG,
             color: '#ffffff',
             fontFamily: FONT_FAMILY_EN,
             whiteSpace: 'nowrap',

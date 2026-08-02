@@ -1,5 +1,5 @@
 import { AbsoluteFill, useCurrentFrame, useVideoConfig, interpolate, Easing } from 'remotion';
-import { FONT_FAMILY, FONT_FAMILY_EN, COLORS } from './style';
+import { FONT_FAMILY, FONT_FAMILY_EN, COLORS, TAG_BG } from './style';
 
 // Weekly color themes — cycle by week number
 const THEMES: Record<string, { accent: string; light: string; gradient: string }> = {
@@ -146,7 +146,7 @@ export const TitleCard: React.FC<{ title: string; dateRange: string; tags?: stri
                 borderRadius: 18,
                 fontSize: 20,
                 fontWeight: 700,
-                background: theme.accent,
+                background: TAG_BG,
                 color: '#ffffff',
                 fontFamily: FONT_FAMILY_EN,
               }}

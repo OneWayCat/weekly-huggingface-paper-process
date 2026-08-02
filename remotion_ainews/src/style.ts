@@ -41,3 +41,8 @@ export const TAG_COLORS: Record<string, { bg: string; text: string }> = {
   Video: { bg: '#f0fdf4', text: '#16a34a' },
   Robotics: { bg: '#fef2f2', text: '#dc2626' },
 };
+
+// ═══ 全局标签/指标背景色 ═══
+// 所有标签徽章（开场标题页、论文标题页、演示页的分类标签和指标）统一使用此色。
+// 换主题色时只需改这里一处。
+export const TAG_BG = '#6366f1';
