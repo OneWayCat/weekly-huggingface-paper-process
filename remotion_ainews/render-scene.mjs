@@ -3,7 +3,7 @@
  * 
  * Usage: node render-scene.mjs <sceneType> <dataFile> <outputPath> [bundlePath]
  *
- * sceneType: "title" | "paperTitle" | "paperDemo" | "outro"
+ * sceneType: "title" | "paperTitle" | "hardwareIntro" | "paperDemo" | "outro"
  * dataFile:  JSON file with scene props
  * outputPath: path to output .mp4 file
  * bundlePath: (optional) reuse existing bundle from a previous call
@@ -55,8 +55,21 @@ const SCENE_CONFIG = {
         arxiv: data.arxiv || '',
         github: data.github || '',
         weekNumber: data.weekNumber ?? 0,
+        subs: data.subs || [],
       };
     },
+  },
+  hardwareIntro: {
+    compositionId: 'hardwareIntro',
+    durationInFrames: 120,
+    inputPropsMapper: (data) => ({
+      title: data.title || '',
+      tag: data.tag || 'AI HARDWARE SHOW',
+      subtitle: data.subtitle || '',
+      institution: data.institution || '',
+      weekNumber: data.weekNumber ?? 1,
+      subs: data.subs || [],
+    }),
   },
   paperDemo: {
     compositionId: 'paperDemo',
@@ -77,6 +90,42 @@ const SCENE_CONFIG = {
     durationInFrames: 60,
     inputPropsMapper: (data) => ({
       text: data.text || '欢迎关注\n下期再见',
+    }),
+  },
+  extraPapers: {
+    compositionId: 'extraPapers',
+    inputPropsMapper: (data) => ({
+      title: data.title || '本周热点论文补充',
+      tag: data.tag || '热点补充',
+      papers: data.papers || [],
+      weekNumber: data.weekNumber ?? 0,
+    }),
+  },
+  demoClip: {
+    compositionId: 'demoClip',
+    inputPropsMapper: (data) => ({
+      videoPath: data.videoPath || 'demos/demo_2_clip.mp4',
+      title: data.title || '新模型效果',
+      tag: data.tag || '新模型效果',
+      subtitle: data.subtitle || '',
+    }),
+  },
+  demoClip3D: {
+    compositionId: 'demoClip3D',
+    inputPropsMapper: (data) => ({
+      clips: data.clips || [],
+      videoPath: data.videoPath || 'demos/demo_3d_clip.mp4',
+      title: data.title || '新模型效果',
+      tag: data.tag || '新模型效果',
+      subtitle: data.subtitle || '',
+    }),
+  },
+  pptScene: {
+    compositionId: 'pptScene',
+    inputPropsMapper: (data) => ({
+      imagePath: data.imagePath || 'p01.png',
+      sceneTag: data.sceneTag || '',
+      subs: data.subs || [],
     }),
   },
 };

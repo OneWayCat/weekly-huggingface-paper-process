@@ -157,6 +157,7 @@ def normalize_tts(text):
         'Meta': 'Meta',
         'LLM': '大语言模型',
         'API': 'API',
+        'AI4AI': 'AI for AI',
     }
     for k, v in replacements.items():
         text = text.replace(k, v)

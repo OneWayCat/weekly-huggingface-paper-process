@@ -93,6 +93,14 @@ python scripts/weekly_paper_pipeline.py output/YYYYWeekWW/lines.md
 
 每篇 100-150 字，结构：问题背景 + 团队 + 创新点 + 可量化成果。口语化自然，不卖萌不啰嗦。
 
+**科普化开场（W34 定稿，必做）**：开篇在"欢迎收看……"之后，用一两句话**预告本期论文分类**（如"今天这五篇，有自动做科研的、有造数字人的、有教机器人认路的，还有给视频生成当裁判的"）——让听众先建立整体预期，避免"走过场"感。
+
+**每篇播报科普结构（W34 定稿）**：不只报数字，要让听众抓住"解决什么问题 + 关键创新点"：
+1. **问题**（白话痛点，如"搞科研有多累？一套下来要好几个月"）
+2. **方案/创新点**（通俗比喻，如"让大模型指路，机器人自己走"、"给音视频生成模型配了个懂行的裁判"）
+3. **成果**（具体数字，TTS 标音）
+每篇 120-160 字，宁口语勿书面。
+
 **TTS 标音规则（重要）**：数字在 lines.md 中直接写 TTS 标音，不要依赖 normalize_tts() 的自动转换。已知问题：
 
 | 原文 | TTS 标音写法 | 说明 |
@@ -113,6 +121,7 @@ python scripts/weekly_paper_pipeline.py output/YYYYWeekWW/lines.md
 | `MA1元` | `MA一元` | 模型名+中文后缀，防"元"被当单位 |
 | `Frontis-MA1元进化` | `Frontis-MA一元进化` | 型号数字后接中文词（元/倍/帧等）会被 `(\d+)([\u4e00-\u9fff])` 误匹配，如 "1元"→"一元" |
 | `4.7×` | `四点七倍` | 倍率直接写中文；**不要**写"四点七分之一"（会读成 1/4.7） |
+| `长程` | 避开或换词 | W32 实测：TTS 把"长程任务"读错（zhangcheng"长成"音），正确读音 cháng chéng。lines.md 里改"长周期/长时间跨度"等，或写后实测确认 |
 
 **原则**：所有数字+字母组合（分辨率、型号）统一在 lines.md 写中文读音。normalize_tts() 中的正则作为后备，但不可完全信赖。写完后用 `tts_qwen3()` 逐段测试确认。
 
@@ -134,6 +143,8 @@ for i, sec in enumerate(re.split(r'## 论文 \d+', text)[1:], 1):
 ```
 
 检查要点：①残留 ASCII 数字（型号/百分比没转中文）②`X元`/`X倍` 被正则误转（如 MA1元→MA一元）③关键短语 spot-check（`RTX四零九零`、`百分之三十九点三九` 等）。有 ⚠️ 先改 lines.md 再跑 pipeline。
+
+**预检误报**：数字后跟字母的英文术语（`3D Zip`、`Ego to Robot`、`W to VLA` 等）会被正则报 ⚠️ 残留——这是误报，Qwen3-TTS 对 `3D` 等英文术语读 three D 正常。用 `tts_qwen3()` 实测该段读音确认即可，不必改 lines.md（改 lines.md 只在 TTS 实际读错时做）。
 
 ### normalize_tts() 自动转换规则（common.py）
 
@@ -174,7 +185,19 @@ for i, sec in enumerate(re.split(r'## 论文 \d+', text)[1:], 1):
 2. 检查 mediaUrls 有 mp4 视频
 3. 验证可量化指标（无具体数字则不收录）
 
+**单日 mp4 论文不足 5 篇时（W34 实测）**：合并本周相邻 3 天（如 8/19-8/21）榜单，按 upvotes 取前 5 篇有 mp4 的（正片顺序 = upvotes 降序）。单日榜单（26 篇）往往只有 2 篇有 mp4。补充页（5 篇无视频热点）同理从三天合并数据里排除正片后按 upvotes 选。
+
+**摘要无数字的指标提取（W34 实测）**：部分论文摘要没有具体数字（如 4DAnyone 只写 "outperforms"）——从论文 PDF 表格提取：`curl -k https://export.arxiv.org/pdf/<id>` 下载，pymupdf `page.get_text('words')` 按行重建表格文本（`rows.setdefault(round(y0), []).append((x0, word))`），Table 2 的 PSNR/SSIM 数值即可提取（4DAnyone: PSNR 24.33 等）。备选：同周 τ_0-VLA 摘要只有训练数据时长（40,115 小时）——这类弱指标可作最后选项。
+
 宁缺毋滥，指标列为空则整篇不收录。
+
+### Demo 视频下载
+
+HF 上传视频直连 `cdn-uploads.hf-mirror.com`（`mediaUrls` 里的 mp4，`curl -s -k` 无需代理）。**串行下载 + `--limit-rate 8M` 限速**——不要用 xargs -P 并行（用户拒绝过并行下载；限速防占满带宽影响前台）。下载后 `ffprobe` 检查编码，HEVC 需转 H.264；文件大小异常小（几百字节）先 `head -c 200` 看是否 AccessDenied XML 错误页，失效恢复见 `references/demo-video-issues.md`。
+
+**python 管道 \r 坑（W34 实测）**：`python -c "print(url)"` 输出到管道时（Windows text mode）行尾是 `\r\n`——`while read url` 会把 `\r` 留在 URL 变量里 → curl 报 `http=000`（连接失败）。表现：单个 URL 用 `$(...)` 命令替换下载成功，但 `while read` 循环里全部 000。修复：`url=${url//$'\r'/}` 去 \r，或改用 `for url in $(python -c ...)` 命令替换（实测命令替换场景 \r 不破坏 URL）。
+
+**4K HEVC 转码超时（W34 实测）**：3840×2160 HEVC → H.264 转码超过 400s（前台 timeout 上限）——必须 `background=true + notify_on_complete=true` 跑，或接受 5-10 分钟等待。
 
 ### 抓取 HF 每日论文（国内网络）
 
@@ -191,6 +214,8 @@ curl -s -k "https://export.arxiv.org/api/query?id_list=2607.28618,2607.28568&max
 ```
 
 落盘后用 Python `json.load()` / `xml.etree.ElementTree` 解析（不要再用 urllib 发第二次请求）。curl 输出 `200` 但文件为空时重试一次；hf-mirror 偶发 SSL EOF 属正常，重试即可。
+
+**daily_papers JSON 解析要点（2026-08 实测）**：顶层是数组；`upvotes` 在 `paper` 子对象里（顶层没有该字段）；arXiv ID 取 `paper.id`（字段名是 `id` 不是 `arxivId`）；`organization` 可能是 dict（取 `.name`）或 list；`paper.authors` 是对象列表需提取 `name`。含 mp4 判定：`mediaUrls` 任一以 `.mp4` 结尾。
 
 ## Pipeline 11 步骤详解
 
@@ -244,7 +269,19 @@ Demo TTS 索引计算公式：`tts_files[2 * i + 2]`（i 为论文序号 0-4）
 - 论文标题页（PaperTitleCard）分类标签
 - 演示页（PaperDemoCard）左上分类标签 + 右下指标标签
 
-**换主题色只改 `TAG_BG` 一处**，禁止在组件里硬编码 `#6366f1` 或标签用 `theme.accent`（装饰元素——分隔线、背景渐变——仍用每周主题色，两者不冲突）。检查残留：`search_files pattern="background: '#6366f1'|background: theme\.accent,"` 应为 0 处。
+**换主题色只改 `TAG_BG` 一处**，禁止在组件里硬编码 `#6366f1` 或标签用 `theme.accent`（装饰元素——分隔线、背景渐变——仍用每周主题色，两者不冲突）。检查残留：`search_files pattern="background: '#6366f1'|background: theme\\.accent,"` 应为 0 处。
+
+**验证颜色统一**：改完后渲染单场景预览，用 PIL/numpy 检查抽帧中两页标签区域像素是否都命中 `#6366f1`（距离 <30 的像素数应 >1 万）：
+```python
+from PIL import Image
+import numpy as np
+img = np.array(Image.open('frame.jpg').convert('RGB'))
+target = np.array([99, 102, 241])  # #6366f1
+dist = np.sqrt(((img - target) ** 2).sum(axis=2))
+print((dist < 30).sum())  # 匹配像素数
+```
+
+**成品抽帧质检（每期必做）**：除 TAG_BG 像素检查外，逐帧加亮度/方差黑屏检测（`bright < 20` 判黑屏；demo 场景整体偏暗但方差低时需人工确认是否为深色镜头）。此像素分析用 terminal 的 python 跑（execute_code 沙箱无 numpy/PIL）。批量抽帧用 `ffmpeg -ss T -i in.mp4 -frames:v 1 -q:v 2 out.jpg`，避免 `-vframes 1 -update 1` 组合（批量时可能静默失败、目录为空）。
 
 ### Demo 页（PaperDemoCard）布局
 - **分类标签（左上）**：20px, padding 8×22, borderRadius 18, fontWeight 700, `TAG_BG` 底白字，top:28 left:28
@@ -293,8 +330,8 @@ cd remotion_ainews
 python -c "import json; json.dump(data, open('_tmp_data.json','w'))"
 # 2. 单场景渲染
 set TMP=..\Temp&&set TEMP=..\Temp&&node render-scene.mjs paperDemo _tmp_data.json watch.mp4
-# 3. 抽帧确认
-ffmpeg -y -ss 1 -i watch.mp4 -vframes 1 -q:v 2 -update 1 preview.jpg
+# 3. 抽帧确认（用 `-frames:v 1`，不要用 `-update 1`——W32 实测 -update 1 静默失败、目录为空且无报错）
+ffmpeg -y -ss 1 -i watch.mp4 -frames:v 1 -q:v 2 preview.jpg
 ```
 
 ## 动效规范（dev 分支实验后已合并到 main）
@@ -358,12 +395,54 @@ ffmpeg -y -ss 1 -i watch.mp4 -vframes 1 -q:v 2 -update 1 preview.jpg
 4. **不碰代码**，只改 lines.md + ffmpeg 操作
 5. **手写 concat 时必须用 `-b:v 8M`**（与 pipeline `concat_videos()` 一致）——用默认 CRF 会产出低码率成品（3:54 视频只有 30MB vs 正常 214MB）。完整重拼命令见 `scripts/reconcat_from_workdir.sh`（或参考下方"单场景失败的中段恢复"）
 
-### papers.md 格式
-每期在 output/ 目录下生成 `papers.md`，**纯文本格式**（无 `##` `**` 等 markdown 标记），内容：论文编号、标题、arXiv、GitHub、标签、机构。
+### papers.md 格式（W33 标准，勿走形）
+
+每期在 output/ 目录下生成 `papers.md`，**纯文本格式**（无 `##` `**` 等 markdown 标记，空行分隔块）：
+
+```
+论文1: <英文标题>
+arXiv: https://arxiv.org/abs/<id>
+GitHub: https://github.com/<owner>/<repo>（无则留空行）
+标签: <分类>
+机构: <机构>
+
+论文2: ...
+```
+
+**热点补充部分**（W33 起必做，接在正片 5 篇后）：
+
+```
+热点补充（无视频论文，按热度排序）
+
+论文 6 — <简称> (<N>⭐)
+标题: <英文全标题>
+arXiv: https://arxiv.org/abs/<id>
+机构: <机构>（可选，无则省略）
+出彩点: <中文一句话，含具体数字>
+```
+
+要点：正片块字段固定（论文N:/arXiv:/GitHub:/标签:/机构:）；补充块带 ⭐ 热度、标题、arXiv、可选机构、出彩点（**必须有具体数字/事实**，不能是"表现优异"类空话）。GitHub 无则留空值（`GitHub:` 后为空），机构无则省略该行。
 
 ### Demo 视频兼容性
 - **HEVC (H.265) 编码的视频**会导致 Remotion `<Video>` 超时渲染失败
 - 修复：`ffmpeg -c:v libx264 -pix_fmt yuv420p` 转码后再渲染
+- **转码文件命名必须 `demo_N.mp4` 格式（W34 血泪坑）**：pipeline 读 slice.md"演示素材"字段的正则是 `demo_\d+\.\w+`（数字后必须直接是点）——`demo_4_h264.mp4` 匹配不到 → 该论文被静默跳过（pipeline 只渲染 4 篇/10 场景，且不报错！）。修复：转码文件复制为 `demo_6.mp4` 之类（数字即可），slice.md 引用之；跑完 pipeline 检查日志 `Papers: N`（应为 5）和场景数（12）
+
+## 字幕处理（SRT 导出 + 烧录——详见 video-subtitles 共享 skill）
+
+**字幕全流程（ASR 对齐/数字转换/繁简归一/退化修复/SRT 导出/烧录）已独立成 `video-subtitles` skill（2026-08-30）——与 AI 硬件发布会共用，修复一处生效。** 速览专用脚本：`nb_w35_srt.py`（TTS 分段 → whisper 句子级对齐 → SRT，含 cn_num_to_arab 数字转换全套）。
+
+**速览字幕要点（2026-08-30 实测定稿）**：
+- 数字转换规则：≥1 亿用中文单位（8亿/90亿）；万及以下阿拉伯（37,000/300/20.6%）；小数位逐位（4.29）；量词保护（一遍/一周/每一分）；模型名连字符（GPT-5.5）
+- whisper 繁体转写 → opencc 归一（否则匹配退化）
+- 退化句（<0.8s 且 >5 字）→ 段内剩余时间（开场第二句 0.3s→9s 实测）
+- 生成后**全文数值与 lines.md 对照校验**（指标铁律在字幕同样适用）
+
+**多 demo 片段规则（2026-08-30 用户拍板）**：单一片段时长不足 TTS 播报 → **拼接该论文全部 demo 片段**（concat demuxer，同编码/同尺寸可直接拼），避免几秒视频反复循环播放（UrbanGround 6 片段 62s 拼接实测）。
+
+**BGM 循环（2026-08-30 修复）**：pipeline 的 BGM 混流（amix duration=first）**不循环**——BGM 短于视频时 2 分钟后无背景乐——混流加 `-stream_loop 1`（BGM 循环填满视频时长）。
+
+**字幕烧录**（样式/坑）见 video-subtitles skill——速览渲染无内嵌字幕，直接对 concat 成品烧录（无需 --no-subs 重渲染）。
 
 ## 常见问题
 
@@ -372,6 +451,12 @@ ffmpeg -y -ss 1 -i watch.mp4 -vframes 1 -q:v 2 -update 1 preview.jpg
 **手写 concat 码率过低（30MB vs 正常 214MB）**: 手动重拼时若用默认 CRF 编码（`-c:v libx264` 不带码率参数），成品码率会掉到 ~1Mbps，3:54 视频只有 30MB，明显劣于正常 8Mbps / 214MB。pipeline 的 `concat_videos()` 用的是 `-b:v 8M`。手写重拼必须带：`-c:v libx264 -pix_fmt yuv420p -b:v 8M -c:a aac -b:a 128k`。用 `ffprobe` 检查成品码率可快速发现。
 
 **TTS 修正确认后时长不匹配**: 修复 TTS 标音后（如 720P→七二零P），新音频可能变长。如果新 TTS 时长 > 原场景帧数（如 37.2s→38.4s），必须重新渲染场景（更新 demoDurationFrames）。如果新 TTS 变短或不变，`-shortest` 自动处理。用 ffprobe 对比新旧 TTS 时长。
+
+**UI 改动 ≠ TTS 修正，修复路径不同**: 分清改动类型再选修复方式——
+- **TTS 标音修正**（只改 lines.md 文字）→ 局部 reconcat：重生成该段 TTS → 重混流 mux_N → 重 concat → 混 BGM，不碰 Remotion。
+- **UI/组件改动**（字号、颜色、布局、动效，如改 `TAG_BG`）→ 必须**重跑完整 pipeline** 生成新版本号：因为所有 12 个场景都要用新组件代码重新渲染，局部 reconcat 只会把旧场景画面保留下来（旧版本不含新 UI）。
+- 判断依据：改动是否影响 Remotion 组件源码。是 → 全量重跑；否 → 局部 reconcat。
+- 产出后对比验证：UI 改动后抽帧像素检查（见 TAG_BG 节），TTS 修正后听读音。
 
 **指标不显示**: 查 Step 1 paper_data 的 metrics 是否硬编码空数组。先查那个再查 bundle 缓存——曾经在 `paper_data.append({"metrics": []})` 处硬编码空数组导致 4 个版本指标不可见，实际 Step 4 传 `paper.get("metrics", [])` 永远取不到。修复：改为 `"metrics": p.get("metrics", [])`。
 
@@ -398,6 +483,33 @@ ffmpeg -y -ss 1 -i watch.mp4 -vframes 1 -q:v 2 -update 1 preview.jpg
 
 **cuml 下载**: pypi.nvidia.com 被墙，代理不穿透 wheel_stub 下载器。替代方案是 sklearn KMeans。
 
+## W32 新增：热点补充页（无视频论文）
+
+用户可选做：正片 5 篇有 demo 论文之外，按 upvotes 补 5 篇无视频热点论文，在 outro 前插一页"本周热点论文补充"（论文名 + 出彩点，TTS 播报）。
+
+> **W33 起改为每周必做**（用户确认）：每周正片之外固定补 5 篇无视频热点论文。做完全部正片 5 篇后，先选补充论文（从 Temp/_papers_all.json 里按 upvotes 排除已收录的），抓 arXiv 摘要提取出彩点，再走下方手工插入流程，最后产出带补充页的版本号。
+
+- 组件：`src/ExtraPapersCard.tsx`（白底，TAG_BG 标签 + 44px 标题 fade+slide + 分隔线展开 + 5 条列表[序号徽章 TAG_BG + 英文名 24px + 中文出彩点 20px]，整卡 exitOpacity）
+- 注册：Root.tsx 加 `extraPapers` composition（durationInFrames 1200 占位，渲染时按 TTS 覆盖）；render-scene.mjs SCENE_CONFIG 加 `extraPapers`（props: title/tag/papers[]/weekNumber）
+- 数据：`papers: [{title, highlight}]`，weekNumber 传实际周数取主题色
+- **不重跑 pipeline**：主 12 场景不动，单独渲染补充页场景 + 手工插入：
+  1. 生成播报 TTS（tts_qwen3）→ frames = ceil(秒×24)，写 `_tmp_extra.json`（含 demoDurationFrames）
+  2. `node render-scene.mjs extraPapers _tmp_extra.json scene_extra.mp4`（TMP/TEMP 重定向）
+  3. 混流：`ffmpeg -i scene_extra.mp4 -i tts.mp3 -map 0:v:0 -map 1:a:0 -shortest -c:v copy -c:a aac -b:a 128k mux_extra.mp4`（放 workdir）
+  4. 手写 `_concat.txt`：mux_0..mux_10 + mux_extra + mux_11（13 片段，**必须 -b:v 8M**）
+  5. 混 BGM 同 reconcat 脚本逻辑 → `_v2.mp4`
+- 产物验证：v2 时长 = v1 时长 + 补充页 TTS 秒数
+
+### W33 实战补充（踩坑记录）
+
+- **补充页播报不要带收尾句**（如"以上就是本周的全部内容"/"以上就是全部热点论文"）——紧接的 outro 以"以上是本周论文精选"开头，两段连播听起来像"以上就是本…以上是本周…"重复。补充页第 5 篇说完直接结束，让 outro 自然收尾。
+- **M/B 单位必须换算中文读数**：150M = 一亿五千万（M=百万，10⁶），744B = 七千四百四十亿（B=十亿，10⁹）。不要读"一百五十M"或误算成"十五亿/七点四四万亿"（差 10 倍）。生成后核对：`assert '以上就是' not in narration` 防缓存/拼接残留。
+- **TTS 时长有随机波动**：相同文本两次生成时长可能不同（如 62.32s vs 63.2s），**不能靠时长判断文本是否生效**。验证改文本是否生效要用内容断言（assert 关键字不在），或用 PCM 采样数对比（相同采样数=疑似缓存命中旧请求）。
+- 补充页数据写 `_tmp_extra.json` 时若 TTS 生成脚本中途 assert 失败，JSON 不会落盘——渲染前确认文件存在（`ls` 检查），避免 render-scene 报 ENOENT。
+
 ## commit 纪律
 
 git add -A 会包含测试产的 mp4、jpg、pipeline.md。commit 前 git status 确认只包含源码文件。如果测试文件意外进 commit，用 git rm --cached 清理。
+
+- `npm run build` 会在 `remotion_ainews/dist/` 生成 tsc 编译产物（js/d.ts/map），`.gitignore` **未覆盖**——提交前清理 dist/ 或先补 ignore。
+- 新增组件的编译验证：`npm run build`（tsc strict）exit=0 即类型安全；运行时冒烟用 `node render-scene.mjs <scene> _tmp_data.json out.mp4`（TMP/TEMP 重定向到项目 Temp/）。

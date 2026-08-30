@@ -6,8 +6,17 @@ output/
 remotion_ainews/node_modules/
 remotion_ainews/.cache/
 remotion_ainews/public/videos/
+remotion_ainews/public/demo_*.mp4
+remotion_ainews/public/urban_*.mp4
+remotion_ainews/public/demos/
+remotion_ainews/public/ppt/
+remotion_ainews/public/demo_*.mp4
+remotion_ainews/public/urban_*.mp4
+remotion_ainews/scene_*.mp4
+remotion_ainews/test_*.wav
 remotion_ainews/_tmp_*.json
 remotion_ainews/public/_scene*.html
+remotion_ainews/dist/
 
 # Python
 __pycache__/

@@ -1,5 +1,8 @@
 import { AbsoluteFill, useCurrentFrame, useVideoConfig, interpolate, Easing } from 'remotion';
 import { FONT_FAMILY, FONT_FAMILY_EN, COLORS, TAG_BG } from './style';
+import { SubtitleText, Sub } from './SubtitleText';
+
+const FPS = 30;
 
 // Weekly color themes — match TitleCard exactly
 const THEMES: Record<string, { accent: string; light: string; gradient: string }> = {
@@ -24,7 +27,8 @@ export const PaperTitleCard: React.FC<{
   arxiv: string;
   github: string;
   weekNumber?: number;
-}> = ({ title, authors, institution, tag, arxiv, github, weekNumber = 0 }) => {
+  subs?: Sub[];
+}> = ({ title, authors, institution, tag, arxiv, github, weekNumber = 0, subs = [] }) => {
   const frame = useCurrentFrame();
   const { durationInFrames } = useVideoConfig();
 
@@ -191,6 +195,9 @@ export const PaperTitleCard: React.FC<{
           </span>
         )}
       </div>
+
+      {/* 底部逐句字幕（共享 SubtitleText，与 PptScene 完全一致） */}
+      <SubtitleText subs={subs} timeSec={frame / FPS} />
     </AbsoluteFill>
   );
 };

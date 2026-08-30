@@ -265,8 +265,8 @@ def run_render(md_data, meta, monday_str, friday_str, lines_md_path):
     # Each paper: title TTS (paper title) + demo narration TTS
     for i, paper in enumerate(paper_data):
         print(f"  Paper {i}...")
-        # Title TTS — short, reads the paper title
-        title_tts_text = paper["title"]
+        # Title TTS — short, reads the paper title (also normalized)
+        title_tts_text = normalize_tts(paper["title"])
         tts_t = os.path.join(workdir, f"tts_{2*i+1}_title.mp3")
         dt = tts_qwen3(title_tts_text, tts_t)
         tts_files.append(tts_t); tts_durations.append(dt)
